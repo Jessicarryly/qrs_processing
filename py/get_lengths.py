@@ -4,6 +4,7 @@ from subprocess import call, Popen
 import os
 os.chdir("/Users/shushu/Documents/WFDB/")
 
+"AAA"
 
 def print_length():
   with open("record.txt") as inp, \
