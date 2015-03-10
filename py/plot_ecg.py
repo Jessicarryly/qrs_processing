@@ -69,3 +69,4 @@ if __name__ == "__main__":
   log = sys.argv[1] 
   folder = sys.argv[2]
   plot_log(log, folder)
+
