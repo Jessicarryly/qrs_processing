@@ -1,7 +1,7 @@
 import re 
 import sys
 
-from base_functions import str_of_list, get_splitted_line, get_signal_values
+from base_functions import strOfList, getSplittedLine, getSignalValues
 
 import os
 os.chdir("/Users/shushu/Documents/WFDB/")
@@ -14,22 +14,28 @@ if len(sys.argv) > 2:
   multiplier = float(sys.argv[2])
 
 
-path = "/Volumes/WD500GB/WFDB/ptbdb/"
+path = "/Volumes/WD500GB/WFDB/"
+db = "ptbdb"
+if len(sys.argv) > 3:
+  db = sys.argv[3]
+path += db + "/"
+
+
 filename = path + patient_record
 raw_filename = filename + "_copy"
 
 with open(filename, "w") as outp, open(raw_filename) as inp:
   line = inp.readline()
-  line = get_splitted_line(line) 
-  elements_count = len(line)
+  line = getSplittedLine(line) 
+  elements_count = len(line) 
 
   while True:
-    signal_values = get_signal_values(line)
+    signal_values = getSignalValues(line)
     if multiplier != 1.0:
        signal_values = signal_values * multiplier
-    print >> outp, "%s\t%s" % (line[0], str_of_list(signal_values))
+    print >> outp, "%s\t%s" % (line[0], strOfList(signal_values))
 
     line = inp.readline()
-    line = get_splitted_line(line) 
+    line = getSplittedLine(line) 
     if len(line) < elements_count:
       break

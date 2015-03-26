@@ -45,18 +45,19 @@ def print_qrs_amplitudes_intervals_corr(r_peaks, qrs_output_filename):
     #print >> qrs_output_file, "Sample\tAmplitude\tInterval\tArgminOfQS\tQSample\tTSample\tIsOmitted"
     prev_r_peak = 0
     omitted_intervals = 0
-    
+    median = np.median([r_peak.interval for r_peak in r_peaks])
     for index in xrange(len(r_peaks)):
       r_peak = r_peaks[index]
       if index > 0:
         if r_peak.r_sample - prev_r_peak.r_sample > prev_r_peak.interval:
           prev_r_peak.interval = r_peak.r_sample - prev_r_peak.r_sample 
-          omitted_intervals += 1
-        print >> qrs_output_file, "%d\t%d\t%d\t%.3f\t%d" % (prev_r_peak.q_sample, prev_r_peak.r_sample, prev_r_peak.t_sample, \
+        if prev_r_peak.interval > 1.5 * median:
+          omitted_intervals += prev_r_peak.interval / median
+        print >> qrs_output_file, "%d\t%d\t%d\t%.3f\t%d" % (prev_r_peak.q_sample, prev_r_peak.r_sample, prev_r_peak.argmin_of_qs_samples, \
                                                             prev_r_peak.amplitude, prev_r_peak.interval)
         if index == len(r_peaks) - 1:
-          print >> qrs_output_file, "%d\t%d\t%d\t%.3f\t%d" % (r_peak.q_sample, r_peak.r_sample, r_peak.t_sample, \
-                                                            r_peak.amplitude, r_peak.interval)
+          print >> qrs_output_file, "%d\t%d\t%d\t%.3f\t%d" % (r_peak.q_sample, r_peak.r_sample, r_peak.argmin_of_qs_samples, \
+                                                              r_peak.amplitude, r_peak.interval)
       prev_r_peak = r_peak
     return omitted_intervals, len(r_peaks)
 
@@ -88,6 +89,7 @@ def get_confidence_interval(values, n = 3, stdev_add_term = 20, filter_by_max = 
   filtered_values = filterArray(array_values, filter_by_max, filter_by_min, nsigma = n + 1)
   median, stdev = get_robust_median_and_stdev(filtered_values, std_is_modified = False)
   stdev += stdev_add_term
+  #median = np.mean(filtered_values)
   return int(median - n * stdev), int(median + n * stdev)
 
 
@@ -106,20 +108,25 @@ def edit_qrs_qrs_amplitudes_intervals(r_peaks):
   
   if len(r_peaks) == 0:
     return [], amplitudes, intervals, 0, 0, 0, 0
-  amplitude_min_value, amplitude_max_value = get_confidence_interval(amplitudes, n = 4, stdev_add_term = 150)
-  amplitude_min_value, amplitude_max_value = max(amplitude_min_value, 100), min(amplitude_max_value, MAX_AMP + 200)
+  amplitude_min_value, amplitude_max_value = get_confidence_interval(amplitudes, n = 3.5, stdev_add_term = 30)
+  print amplitude_min_value, amplitude_max_value
+  amplitude_min_value, amplitude_max_value = max(amplitude_min_value, 150), min(amplitude_max_value, MAX_AMP + 200)
+  "6_2.txt 0 150"
+  "5_2.txt 0 115"
   if amplitude_max_value < amplitude_min_value:
     amplitude_max_value += amplitude_min_value
-  
+  print amplitude_min_value, amplitude_max_value
+
   filtered_r_peaks = [x for x in r_peaks if amplitude_min_value < x.amplitude < amplitude_max_value]
   intervals = np.r_[np.diff(np.array([x.r_sample for x in filtered_r_peaks])), filtered_r_peaks[-1].interval]
   for index in xrange(len(filtered_r_peaks)):
     filtered_r_peaks[index].interval = intervals[index]
 
   interval_min_value, interval_max_value = get_confidence_interval(intervals, n = 4, stdev_add_term = 100, filter_by_min = False)
-  interval_min_value, interval_max_value = max(interval_min_value, 30), min(interval_max_value, 2000)
+  interval_min_value, interval_max_value = max(interval_min_value, 500), min(interval_max_value, 2400)
   if interval_min_value > interval_max_value:
     interval_max_value += interval_min_value
+  print interval_min_value, interval_max_value
 
   corrected_r_peaks = [x for x in filtered_r_peaks if interval_min_value < x.interval < interval_max_value]
   intervals = np.r_[np.diff(np.array([x.r_sample for x in corrected_r_peaks])), corrected_r_peaks[-1].interval]
@@ -174,7 +181,7 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
   if data_line_count == 0:
     return r_peaks
   
-  sfreq_delim = 2
+  sfreq_delim = 1
   with open(data_filename) as data_file, open("f", "w") as outp:
     q_samples_count = len(q_samples)
     current_q = 0
@@ -183,17 +190,18 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
     qr_amplitudes = np.empty([0])
     
     S_SIZE = 100 / sfreq_delim + 2
-    pq_size = 30 / sfreq_delim + 2
+    pq_size = 100 / sfreq_delim + 2
     q_window = []
     QRS_SIZE = 100 / sfreq_delim + 2
     MINUS_INF = -1e10    
     min_of_q_s_value = min_of_q_values = 0
-    qr_interval_min_value, qr_interval_max_value = 20 / sfreq_delim + 2, 120 / sfreq_delim + 2
+    qr_interval_min_value, qr_interval_max_value = 20 / sfreq_delim + 2, 180 / sfreq_delim + 2
     q_size = Q_SIZE = qr_interval_min_value
-    qr_amplitude_min_value, qr_amplitude_max_value = 50, MAX_AMP
+    qr_amplitude_min_value, qr_amplitude_max_value = 80, MAX_AMP
     qr_interval_min_thres, qr_interval_max_thres = qr_interval_min_value, qr_interval_max_value
     qr_amplitude_min_thres, qr_amplitude_max_thres = qr_amplitude_min_value, qr_amplitude_max_value 
-    
+    "6_2.txt 0 70"
+    "5_2.txt 0 60"
     for line in data_file:
       splitted_line = split_line(line)
       if len(splitted_line) > 1 + signal:
@@ -219,9 +227,7 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
             print >> outp, "QRS_SIZE= %.2f\tQRIntMinThres= %.2f,\tQRIntMaxThres= %.2f" % (QRS_SIZE,
                                                                                           qr_interval_min_thres,
                                                                                           qr_interval_max_thres)
-            #if r_sample < q_sample or s_sample < r_sample or t_sample < s_sample:
-            #  print "WOHOO", current_q
-
+  
             if r_sample > corrected_q_sample:
               #print qr_intervals
               qr_intervals, qr_interval_min_thres, qr_interval_max_thres = \
@@ -230,7 +236,7 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
                                            nsigma = 4, 
                                            max_thres_max_value = qr_interval_max_value,
                                            min_thres_min_value = qr_interval_min_value,
-                                           stdev_add_term = 10 / sfreq_delim + 1, 
+                                           stdev_add_term = 25 / sfreq_delim + 1, 
                                            sfreq_delim = sfreq_delim)
 
               qr_amplitudes, qr_amplitude_min_thres, qr_amplitude_max_thres = \
@@ -250,19 +256,22 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
           window_size = 2 * half_window_size + 1 
           window = []
           QRS_SIZE = 2 * qr_interval_max_thres
-          #q_size = Q_SIZE + int(30 / sfreq_delim) + 1
-          q_size = Q_SIZE 
+          q_size = Q_SIZE + int(60 / sfreq_delim) + 1
+          #q_size = Q_SIZE 
           corrected_q_sample = q_sample = sample 
           q_shift = 0
           if len(q_window) > 0 and window_is_not_noisy(q_window, qr_amplitude_max_thres):
-            window_min_index, window_min_value, window_min_sample = find_min_or_max_of_window(q_window, sample, min_or_max = "MIN")
+            window_min_index, window_min_value, window_min_sample = \
+              find_min_or_max_of_window(q_window, sample, min_or_max = "MIN")
             if window_min_value < signal_value:
               corrected_q_sample = q_sample = window_min_sample
               min_of_q_s_value = min_of_q_values = window_min_value
               q_shift = sample - q_sample
               q_size += q_shift
+              qr_interval_max_thres += q_shift
               window = q_window[window_min_index:]
           last_r_peak = corrected_q_sample
+          
           r_value, r_sample = MINUS_INF, last_r_peak
           s_sample, s_value = t_sample, t_value = r_sample, r_value
           argmin_of_q_s_sample = corrected_q_sample  
@@ -278,7 +287,7 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
             window_middle_value = window[-half_window_size - 1]
             window_not_noisy = window_is_not_noisy(window, qr_amplitude_max_thres)
             if sample - q_sample < q_size:
-              if q_size < q_shift + Q_SIZE + int(50.0 / sfreq_delim) + 1: 
+              if q_size < q_shift + Q_SIZE + int(100.0 / sfreq_delim) + 1: 
                 if window_not_noisy:
                   if window_middle_value < min_of_q_values:
                     min_of_q_s_value = min_of_q_values = window_middle_value
@@ -309,7 +318,7 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
               if window_middle_value > r_value and \
                  max(qr_amplitude_min_thres, qr_amplitude_min_value) < window_middle_value - min_of_q_values < \
                  qr_amplitude_max_thres:
-                if last_r_peak == corrected_q_sample or window_middle_sample - last_r_peak < qr_interval_max_thres:
+                if last_r_peak == corrected_q_sample or window_middle_sample - corrected_q_sample < qr_interval_max_thres:
                   r_sample, r_value = window_middle_sample, window_middle_value
                   last_r_peak = r_sample
                   s_sample, s_value = r_sample, r_value
@@ -568,12 +577,11 @@ def shiftRIntervals(r_peaks):
 
 def calculateRPeaks(data_filename, lines_count, qrs_input_filename, \
                     qrs_output_filename, corrected_qrs_output_filename, \
-                    patient, log_filename, signal = 0):
+                    patient, log_filename, signal_index = 0):
+  signal_index = int(signal_index)
   q_samples = load_qrs_occurencies(qrs_input_filename)
-  r_peaks = get_qrs_amplitudes_intervals(data_filename, lines_count, q_samples, signal = signal)
-  print [x.interval for x in r_peaks][:10]
+  r_peaks = get_qrs_amplitudes_intervals(data_filename, lines_count, q_samples, signal = signal_index)
   shiftRIntervals(r_peaks)
-  print [x.interval for x in r_peaks][:10]
 
   print_qrs_amplitudes_intervals(r_peaks, qrs_output_filename)
 

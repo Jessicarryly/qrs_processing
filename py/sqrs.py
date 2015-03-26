@@ -9,6 +9,8 @@ from matplotlib import pyplot as plt
 import tempfile
 from shutil import copy, copyfile
 from get_qrs_peaks_comparison import calculateRPeaks
+from invert_signal_by_sign import invertSignalBySign
+
 
 def constraintValueBySegment(value, min_value, max_value):
   value = max(value, min_value)
@@ -175,14 +177,15 @@ def getQPeaks(datadir, record, resampledir, outdir,
             processSample(line, signal_index, sfreq, inp_sfreq, outp,
                           window_values, slope_params, qsample_params)
       
-def plotQPeaksInWindow(dataset, peaks_list, left, window_size, ax):
+def plotQPeaksInWindow(dataset, peaks_list, left, window_size, ax, signal_index = 0):
   right = left + window_size
-  ax.plot(dataset[left : right, 0], dataset[left : right, 1])
+  ax.plot(dataset[left : right, 0], dataset[left : right, 1 + int(signal_index)])
   for peaks in peaks_list:
     ax.plot(peaks[:, 0], peaks[:, 1], 'o')
   ax.set_xlim((left, right))
+  ax.set_ylim((min(dataset[left : right, 1 + int(signal_index)]) - 20, max(dataset[left : right, 1 + int(signal_index)]) + 20))
 
-def plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count= 1, signal_index= 0):
+def plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count= 1, signal_index= 0, start_from = 5, window_size = 15, skip_windows = 1):
   signal_index = str(signal_index)
   dataset = np.loadtxt(datadir + record)
 
@@ -196,14 +199,15 @@ def plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_c
         peaks.append((peak, dataset[peak, 1 + int(signal_index)]))
     peaks_list.append(np.array(peaks))
 
-  diff = 5 * inp_sfreq 
+  diff = window_size * inp_sfreq 
   plt.clf()
   subplots_count = 4
   f, axes = plt.subplots(subplots_count, sharey= False, figsize= (20, 10))
-  left = 2800
+  left = start_from * inp_sfreq
   for ax in axes:
-    plotQPeaksInWindow(dataset, peaks_list, left, diff, ax)
-    left += diff
+    if left + diff < len(dataset):
+      plotQPeaksInWindow(dataset, peaks_list, left, diff, ax, signal_index)
+      left += skip_windows * diff
   f.savefig(plotsdir + record + qrs_suffix + signal_index + ".png")
 
 def getCoeffs(index):
@@ -278,15 +282,8 @@ def getDeviceRoot(device_type):
     root += "skrinfax/"
   return root
 
-def addSample(datadir, record):
-  copyfile(datadir + record, datadir + record + "_before_inv")
-  with open(datadir + record, "w") as outp, open(datadir + record + "_before_inv") as inp:
-    for line in inp:
-      line = getSplittedLine(line)
-      line[1] = str(-1 * float(line[1]))
-      print >> outp, "\t".join(line)
       
-good = {
+high_freq = {
   "TEST" : ["4_2.txt", "5_1.txt", "6_3.txt"], 
   "SFAX" : ["1_1.txt", "1_2.txt", "2_1.txt", "3_2.txt"]
 }
@@ -350,6 +347,8 @@ def getRAmpsInts(datadir, qrsdir, record, qrs_suffix, signal_index = 0):
 
   rpeaks = np.array(ramps_ints[:, -2], dtype = int)
   mins = np.array(ramps_ints[:, -1], dtype = int)
+
+  
   plotRPeaksAndMinOfQS(dataset, rpeaks, mins, qrsdir + record.split(".")[0] + ".jpg", signal_index)
 
 def getRAmpsIntsCorr(datadir, qrsdir, record, qrs_suffix, peaks_count = 3, signal_index = 0, skip_nrows = 0):
@@ -383,22 +382,27 @@ def processDevice(muv_scmin, DEV_TYPE= "TEST"):
   """
 
   for record, inp_sfreq in names_to_sfreqs_map.iteritems():
-    if DEV_TYPE == "TEST" and record not in good[DEV_TYPE]: 
+    if DEV_TYPE == "TEST" and record not in high_freq[DEV_TYPE] \
+      and record == "1_1.txt": 
       print DEV_TYPE, record
+      """
       """
       getQPeaks(datadir, record, resampledir, qrsdir, q_suffix,
                 inp_sfreq, muv_scmin, signal_index, ADC= False)
       
       getQRSPeaks(datadir, qrsdir, record, q_suffix, qrs_suffix, inp_sfreq, signal_index)
       
-      plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count= 3, signal_index= signal_index) 
-      """
-      getRAmpsInts(datadir, qrsdir, record, qrs_suffix)
+      plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count = 3, signal_index=signal_index, 
+                 start_from = 0, skip_windows = 1, window_size = 15)
+      
+      #getRAmpsInts(datadir, qrsdir, record, qrs_suffix)
 
 
 
   #os.removedirs(resampledir)
-def processDeviceCorr(DEV_TYPE):    
+def processDeviceCorr(muv_scmin, DEV_TYPE):    
+  signal_index = 0
+
   root = getDeviceRoot(DEV_TYPE)
   os.chdir(root)
   
@@ -406,31 +410,48 @@ def processDeviceCorr(DEV_TYPE):
   
   datadir = "data/"
   names_to_sfreqs_map = getNamesToSfreqsMap(datadir)
-
-  signal_index = 0
+  
+  resampledir = datadir + "resample/"
   qrsdir = "qrs_corr/"
   plotsdir = "plots_corr/"
-
+  q_suffix = "_q_peaks_"
   qrs_suffix = "_qrs_peaks_"
-  for record, inp_sfreq in names_to_sfreqs_map.iteritems():
-    if record in good[DEV_TYPE] or DEV_TYPE == "SFAX":
-      print DEV_TYPE, record
-      data_filename = datadir + record
-      qrs_input_filename = qrsdir + record + "_q_peaks_" + str(signal_index)
 
-      qrs_output_filename = qrsdir + record + qrs_suffix + "with_errors_"
+  for record, inp_sfreq in names_to_sfreqs_map.iteritems():
+    if DEV_TYPE == "TEST" and record in high_freq[DEV_TYPE] or \
+    DEV_TYPE == "SFAX" and record not in ["6_2.txt", "5_1.txt", "5_2.txt", "3_1.txt", "1_2.txt",
+    "2_1.txt", "1_1.txt", "3_2.txt", "4_1.txt", "4_2.txt"] and record == "7_1.txt":
+
+      print DEV_TYPE, record
+      #invertSignalBySign(root + datadir, "", record, signal_index, suffix = "_before_inv")   
+      
+      
+      data_filename = datadir + record
+      qrs_input_filename = qrsdir + record + q_suffix + str(signal_index)
+      qrs_output_filename = qrsdir + record + qrs_suffix + "with_errors_" + str(signal_index)
       corrected_qrs_output_filename = qrsdir + record + qrs_suffix + str(signal_index)
-      qrs_output_filename = qrs_output_filename + str(signal_index)
 
       lines_count = len([x for x in open(data_filename) if len(getSplittedLine(x)) > 1 + int(signal_index)])
+      """
+      """
+      getQPeaks(datadir, record, resampledir, qrsdir, q_suffix,
+                inp_sfreq, muv_scmin, signal_index, ADC= False)
+      q_count = len([x for x in open(qrs_input_filename)])
+      print q_count
+      
+      
       
       calculateRPeaks(data_filename, lines_count, qrs_input_filename, \
                       qrs_output_filename, corrected_qrs_output_filename, \
                       record, log_filename, 
-                      signal = int(signal_index))
+                      signal_index = signal_index)
       
-      plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count = 3)
-      getRAmpsIntsCorr(datadir, qrsdir, record, qrs_suffix, peaks_count = 3, signal_index = 0)
+      plotQPeaks(datadir, qrsdir, plotsdir, record, qrs_suffix, inp_sfreq, peaks_count = 3, signal_index=signal_index, 
+                 start_from = 0, skip_windows = 1, window_size = 10)
+      
+      #getRAmpsIntsCorr(datadir, qrsdir, record, qrs_suffix, peaks_count = 3, signal_index = signal_index)
+      
+      
 
 def filterRAmpsInts(ramps_ints):
   b = len(ramps_ints)
@@ -444,7 +465,6 @@ def filterRAmpsInts(ramps_ints):
   print len(ramps_ints), b
   return ramps_ints
 
-#def getCode(amplitude_diff, interval_diff, alpha_diff):
 
 def getCodegrams():
   datadir = "data/"
@@ -458,29 +478,23 @@ def getCodegrams():
       print record
       ramps_ints = np.loadtxt(datadir + record + "_ramps_" + str(signal_index) + ".txt") 
       
-      #ramps_ints = filterRAmpsInts(ramps_ints)
+      ramps_ints = filterRAmpsInts(ramps_ints, )
+
       """
       with open(datadir + record + "_codegrams_" + str(signal_index) + ".txt") as outp:
         for index in xrange(1, len(ramps_ints)):
           pass
       """
 if __name__ == "__main__":   
-  muv_scmin = 320     
-  """
-  ptbdb_path = "/Volumes/WD500GB/WFDB/ptbdb/"
-  record = "patient006/s0064lre"
-  suffix = "_resampled"
-  inp_sfreq = 1000
-  signal_index = 2
-  get_q_peaks(ptbdb_path, record, suffix, inp_sfreq, muv_scmin, signal_index, ADC= True)
-  record = record + "_muv"
-  get_q_peaks(ptbdb_path, record, suffix, inp_sfreq, muv_scmin, signal_index, ADC= False)
-  """
+  muv_scmin = 220    
+  "sfax 6_2.txt, 5_2.txt 0 - 90"
+  "sfax 4_1.txt 135"
+
   #DEV_TYPE = "SFAX"
   DEV_TYPE = "TEST"
   processDevice(muv_scmin, DEV_TYPE)
-  #processDeviceCorr(DEV_TYPE)
+  #processDeviceCorr(muv_scmin, DEV_TYPE)
   #processDevice(muv_scmin)
-  getCodegrams()
+  #getCodegrams()
 
   

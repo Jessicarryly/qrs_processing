@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HOME_PATH="/Users/shushu/WFDB/"
+HOME_PATH="/Users/shushu/Documents/WFDB/"
 PY_PATH="/Users/shushu/Documents/WFDB/qrs_processing/py"
 
 <<comment1
@@ -18,37 +18,51 @@ rm healthy_records.txt
 while read -r line
 do
   #rm record.txt
-  curl -o header.txt http://physionet.org/physiobank/database/ptbdb/${line}.hea  
-  python ${PY_PATH}/filter_one_diagnosis.py $line 
+  #curl -o header.txt http://physionet.org/physiobank/database/ptbdb/${line}.hea
+  #python ${PY_PATH}/filter_one_diagnosis.py $line
   echo $line
 done
 comment1
 
-
-getQRS() {
-  signal_log="$1"  
-
+loadFromDatabase() {
   OIFS=$IFS
   IFS='/'
   read -ra patient <<< "${line}"
   IFS=$OIFS
   
   patient="${patient[0]}"
-  path="/Volumes/WD500GB/WFDB/ptbdb"
 
   if ! [ -a ${path}/$patient ]; then
     mkdir ${path}/$patient
   fi
+  
+  if ! [ -a ${path}_records_muv/$patient ]; then
+    mkdir ${path}_records_muv/$patient
+  fi
 
-  cd $HOME_PATH
-  #rdsamp -r ptbdb/${line} -H -s 0 1 2 > ${path}/${line}_copy
-  #python ${PY_PATH}/replace_spaces_with_tabs.py $line
+  cp ${path}/${line}_muv ${path}_records_muv/${line}
+
+  #muv_filename="${line}_muv"
+  #echo $muv_filename
+  #rdsamp -r ptbdb/${line} -P -PS -H -s 0 1 2 > ${path}/${muv_filename}_copy
+  #python ${PY_PATH}/replace_spaces_with_tabs.py $muv_filename 1000
+}
+
+runSQRS() {
+  sqrs -r ptbdb/${line} -H -m 200 -s $signal_index
+  rdann -r ptbdb/${line} -a qrs > ${path}/${line}_sqrs_output_${signal_index}
+}
+
+getQRS() {
+  signal_log="$1"  
+  
+  #cd $HOME_PATH
+    
   #echo $signal_index
-  #sqrs -r ptbdb/${line} -H -m 200 -s $signal_index
-  #rdann -r ptbdb/${line} -a qrs > ${path}/${line}_sqrs_output_${signal_index}
   #info=$(python ${PY_PATH}/get_amplitudes.py log/$signal_log $line $path)
 
-  #info=$(python ${PY_PATH}/get_amplitudes_new.py log/$signal_log $line $path MULT $noise_by_window_size)
+  #ATTENTION PLEASE!!!!!!
+  #DON'T FORGET TO CHANGE FILENAME TO THE ONE WITH MUV!!!!!
   info=$(python ${PY_PATH}/get_noisy_segments.py log/${signal_log} $line $path $signal_index ONE $noise_by_window_size)
   echo $info
   findErrorsInQRSRecognition $line $info 
@@ -131,6 +145,7 @@ getDiffs() {
 
 processDiagnosis() {
   diff_output_path="."
+  path="/Volumes/WD500GB/WFDB/ptbdb"
   prepareFolders 
 
   echo $patients_list
@@ -138,9 +153,12 @@ processDiagnosis() {
   while read -r line
   do
     echo $line
+    loadFromDatabase
+
     #for signal_index in {0..2}
     #do
       #echo $signal_index
+      #runSQRS
       #getQRS ${log}_${signal_index}
     #done
     #getDiffs
@@ -159,7 +177,6 @@ if ! [ -d log ]; then
   mkdir log
 fi
 
-
 log="log_$(timestamp)"
 stats="diagnosis/stats"
 #if [ -e ${stats} ]; then 
@@ -177,12 +194,12 @@ exec 3<"$DIAGNOSES_FILE"
 while read -r diagnosis <&3
 do
   echo $diagnosis
-  line_seed=$((line_seed + 1))
+  #line_seed=$((line_seed + 1))
   #getSubsetProportion $diagnosis  
   #python ${PY_PATH}/get_subset_of_file.py diagnosis/${diagnosis} diagnosis/subset/${diagnosis} $part $line_seed
   patients_list="diagnosis/${diagnosis}"
   processDiagnosis  
   #getDiffs
 done
-python ${PY_PATH}/plot_ecg.py log/log_20150117_0449 plots
+#python ${PY_PATH}/plot_ecg.py log/log_20150117_0449 plots
   
