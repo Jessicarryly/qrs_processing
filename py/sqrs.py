@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import tempfile
 from shutil import copy, copyfile
 from get_qrs_peaks_comparison import calculateRPeaks
-from invert_signal_by_sign import invertSignalBySign
+#from invert_signal_by_sign import invertSignalBySign
 
 
 def constraintValueBySegment(value, min_value, max_value):
@@ -75,7 +75,7 @@ def correctQSample(qsample, corrected_qsamples_set):
   
   if right_qsample > qsample_right_surround[0, 0]:
     corrected_qsample = right_qsample
-  else:
+  elif len(qsample_left_surround) > 0:
     left_qsample = qsample_left_surround[-1, 0]
     for i in xrange(len(qsample_left_surround) - 2, -1, -1):
       if qsample_left_surround[i, 1] <= qsample_left_surround[i + 1, 1]:
@@ -98,8 +98,9 @@ def printQSample(slopecrit, maxslope, scmin, scmax, samples_to_last_qpeak,
       qtype = "A"  
     qsample = max((qsample) * samples_multiplier, 0)
     sample = sample * samples_multiplier
-    print >> output_file, "%d\t%s" % (int(qsample), qtype) 
+    print >> output_file, "%d\t%d\t%s" % (int(qsample), int(qsample), qtype) 
   return slopecrit, samples_to_last_qpeak
+
 
 def processSample(line, signal_index, sfreq, inp_sfreq, outp,
                    window_values, slope_params, qsample_params):
@@ -152,12 +153,18 @@ def getQPeaks(datadir, record, resampledir, outdir,
     scmin *= 2
 
   sfreq = 250
-  """
-  if sfreq != inp_sfreq:
-    changeSFreq(datadir + record, resampledir + record, inp_sfreq, out_sfreq= sfreq, first_signal_index= 1)
-  else:
-    copy(datadir + record, resampledir)
-  """
+
+  if not os.path.exists(resampledir):
+    os.makedirs(resampledir)
+  try:
+      f = open(resampledir + record)
+      f.close()
+  except:
+    if sfreq != inp_sfreq:
+      changeSFreq(datadir + record, resampledir + record, inp_sfreq, out_sfreq= sfreq, first_signal_index= 1)
+    else:
+      copy(datadir + record, resampledir)
+    
   with open(resampledir + record) as inp, \
        open(outdir + record + q_suffix + str(signal_index), "w") as outp:
     signal_index = int(signal_index)

@@ -49,8 +49,15 @@ loadFromDatabase() {
 }
 
 runSQRS() {
-  sqrs -r ptbdb/${line} -H -m 200 -s $signal_index
-  rdann -r ptbdb/${line} -a qrs > ${path}/${line}_sqrs_output_${signal_index}
+  l="/Volumes/WD500GB/WFDB/ptbdb"
+  if ! [ -a ${path}/${line}_sqrs_output_${signal_index} ]; then
+    if ! [ -a ${l}/${line}_sqrs_output_${signal_index} ]; then
+      sqrs -r ptbdb/${line} -H -m 200 -s $signal_index
+      rdann -r ptbdb/${line} -a qrs > ${path}/${line}_sqrs_output_${signal_index}
+    else
+      cp ${l}/${line}_sqrs_output_${signal_index} ${path}/${line}_sqrs_output_${signal_index}
+    fi
+  fi
 }
 
 getQRS() {
@@ -63,6 +70,7 @@ getQRS() {
 
   #ATTENTION PLEASE!!!!!!
   #DON'T FORGET TO CHANGE FILENAME TO THE ONE WITH MUV!!!!!
+
   info=$(python ${PY_PATH}/get_noisy_segments.py log/${signal_log} $line $path $signal_index ONE $noise_by_window_size)
   echo $info
   findErrorsInQRSRecognition $line $info 
@@ -142,25 +150,39 @@ getDiffs() {
   python ${PY_PATH}/get_differencies.py $line ${stats} $diff_output_path $selected_signal
 }
 
+invertSignal() {
+  to_invert_list="/Volumes/WD500GB/WFDB/to_invert"
+  exec 4<"$to_invert_list"
+  while read -r patient_record_signal <&4
+  do
+    echo $patient_record_signal
+    read -ra patient_record_signal <<< $patient_record_signal
+    
+    if ! [ -a ${path}/${patient_record_signal[0]}/${patient_record_signal[1]}_copy ]; then
+      cp ${path}/${patient_record_signal[0]}/${patient_record_signal[1]} ${path}/${patient_record_signal[0]}/${patient_record_signal[1]}_copy  
+    fi
+    python ${PY_PATH}/invert_signal_by_sign.py $path ${patient_record_signal[0]}/${patient_record_signal[1]} ${patient_record_signal[2]} 150
+  done
+}
 
 processDiagnosis() {
   diff_output_path="."
-  path="/Volumes/WD500GB/WFDB/ptbdb"
+  
   prepareFolders 
-
   echo $patients_list
   exec 0<"$patients_list"
   while read -r line
   do
     echo $line
-    loadFromDatabase
-
-    #for signal_index in {0..2}
-    #do
-      #echo $signal_index
+    #loadFromDatabase
+    
+    for signal_index in {0..2}
+    do
+      echo $signal_index
       #runSQRS
-      #getQRS ${log}_${signal_index}
-    #done
+
+      getQRS ${log}_${signal_index}
+    done
     #getDiffs
   done
 }  
@@ -189,8 +211,14 @@ noise_by_window_size="noise_by_window_size"
 line_seed=3
 part=0.1
 
+path="/Volumes/WD500GB/WFDB/ptbdb_records_muv"
+
+#invertSignal
+
 DIAGNOSES_FILE="diagnoses_list.txt"
 exec 3<"$DIAGNOSES_FILE"
+
+
 while read -r diagnosis <&3
 do
   echo $diagnosis

@@ -16,7 +16,10 @@ def load_qrs_occurencies(filename):
   qrs_occurencies = []
   with open(filename) as f:
     for line in f:
-      qrs_occurencies.append(int(split_line(line)[0]))
+      try:
+        qrs_occurencies.append(int(split_line(line)[1]))
+      except:
+        qrs_occurencies.append(int(split_line(line)[0]))
   if qrs_occurencies[0] < 0:
     qrs_occurencies[0] = 0
   return qrs_occurencies
@@ -38,7 +41,7 @@ def print_qrs_amplitudes_intervals(r_peaks, qrs_output_filename):
         if index == len(r_peaks) - 1:
           print >> qrs_output_file, "%s\t%s" % (r_peak, is_omitted)  
       prev_r_peak = r_peak
-    return omitted_intervals, len(r_peaks)
+  return omitted_intervals, len(r_peaks)
 
 def print_qrs_amplitudes_intervals_corr(r_peaks, qrs_output_filename):
   with open(qrs_output_filename, "w") as qrs_output_file:

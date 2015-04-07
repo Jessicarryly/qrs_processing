@@ -2,6 +2,8 @@ import sys
 import os
 import re
 
+from sqrs import getQPeaks
+
 def invertSignalBySign(path, patient, record, signals, suffix = "_before_inverting"):
   os.chdir(path + "/" + patient)
   try:
@@ -16,9 +18,22 @@ def invertSignalBySign(path, patient, record, signals, suffix = "_before_inverti
     for line in inp:
       line = re.split("\s+", line.strip())
       for signal in list(signals):
-        line[1 + signal] = str(int(line[1 + signal]) * -1)
+        line[1 + signal] = str(float(line[1 + signal]) * -1)
       line = "\t".join(line)
       print >> outp, line
+
+def getQPeaksForInverted(path, patient, record, signals, threshold):
+  for signal_index in signals:
+    getQPeaks(path + "/" + patient + "/", 
+              record, 
+              path + "/" + patient + "/resample/", 
+              path + "/" + patient + "/",
+              "_sqrs_output_", 
+              1000, 
+              threshold, 
+              signal_index= signal_index, 
+              ADC= False)
+
 
 if __name__ == "__main__":    
   path = sys.argv[1]
@@ -27,6 +42,10 @@ if __name__ == "__main__":
   signals = [] 
   if len(sys.argv) > 3:
     signals = map(int, sys.argv[3].strip().split("_"))
-  print signals
-  invertSignalBySign(path, patient, record, signals)
+  
+  #invertSignalBySign(path, patient, record, signals)
+  if len(sys.argv) > 4:
+    threshold = float(sys.argv[4])
+    getQPeaksForInverted(path, patient, record, signals, threshold)
+  
 
