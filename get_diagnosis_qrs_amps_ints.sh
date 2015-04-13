@@ -36,11 +36,11 @@ loadFromDatabase() {
     mkdir ${path}/$patient
   fi
   
-  if ! [ -a ${path}_records_muv/$patient ]; then
-    mkdir ${path}_records_muv/$patient
+  if ! [ -a ${path}_muv/$patient ]; then
+    mkdir ${path}_muv/$patient
   fi
 
-  cp ${path}/${line}_muv ${path}_records_muv/${line}
+  cp ${path}/${line}_muv ${path}_muv/${line}
 
   #muv_filename="${line}_muv"
   #echo $muv_filename
@@ -161,9 +161,10 @@ invertSignal() {
     if ! [ -a ${path}/${patient_record_signal[0]}/${patient_record_signal[1]}_copy ]; then
       cp ${path}/${patient_record_signal[0]}/${patient_record_signal[1]} ${path}/${patient_record_signal[0]}/${patient_record_signal[1]}_copy  
     fi
-    python ${PY_PATH}/invert_signal_by_sign.py $path ${patient_record_signal[0]}/${patient_record_signal[1]} ${patient_record_signal[2]} 150
+    python ${PY_PATH}/invert_signal_by_sign.py $path ${patient_record_signal[0]}/${patient_record_signal[1]} ${patient_record_signal[2]} INV 150
   done
 }
+
 
 processDiagnosis() {
   diff_output_path="."
@@ -211,7 +212,7 @@ noise_by_window_size="noise_by_window_size"
 line_seed=3
 part=0.1
 
-path="/Volumes/WD500GB/WFDB/ptbdb_records_muv"
+path="/Volumes/WD500GB/WFDB/ptbdb_muv"
 
 #invertSignal
 
@@ -229,5 +230,5 @@ do
   processDiagnosis  
   #getDiffs
 done
-#python ${PY_PATH}/plot_ecg.py log/log_20150117_0449 plots
+#python ${PY_PATH}/plot_ecg.py 20150117_0449
   

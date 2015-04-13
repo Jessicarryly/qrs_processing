@@ -1,4 +1,4 @@
-HOME_PATH="/Users/shushu/WFDB/"
+HOME_PATH="/Users/shushu/Documents/WFDB/"
 PY_PATH="/Users/shushu/Documents/WFDB/qrs_processing/py"
 
 cd $HOME_PATH
@@ -110,7 +110,7 @@ prepareFolders() {
   fi
 
   if ! [ -d $diff_output_path ]; then
-    mkdir $diff_output_path
+    mkdir ${diff_output_path}
   fi
 }
 
@@ -129,7 +129,7 @@ printReady() {
     signal_index="${patient_record_signal[2]}"
     diagnosis="${patient_record_signal[3]}"
     prepareFolders
-    python ${PY_PATH}/print_amps_intervals_by_diagnosis.py $patient_record $diff_output_path $signal_index
+    python ${PY_PATH}/print_amps_intervals_by_diagnosis.py $patient_record $diff_output_path $signal_index $INP_DATA_TYPE
   done
 }
 
@@ -142,6 +142,8 @@ MODE="ALL"
 python ${PY_PATH}/select_signal_ready.py
 READY_SELECTED="/Volumes/WD500GB/WFDB/ready_selected"
 MODE="SELECTED"
+
+INP_DATA_TYPE="MUV"
 
 if [ $MODE == "SELECTED" ]; then 
   printReady $READY_SELECTED

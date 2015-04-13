@@ -10,7 +10,7 @@ from base_functions import getSplittedLine
 import os
 os.chdir("/Users/shushu/Documents/WFDB/")
 
-MAX_AMP=2800
+MAX_AMP=3000
 
 
 def load_qrs_occurencies(filename):
@@ -85,45 +85,6 @@ class RPeak(object):
     return "\t".join(map(str, [self.r_sample, self.amplitude, self.interval, \
                                self.argmin_of_qs_samples, self.q_sample, self.t_sample]))
 
-"""
-def edit_qrs_qrs_amplitudes_intervals(r_peaks):
-  r_samples = [x.r_sample for x in r_peaks]
-  amplitudes = [x.amplitude for x in r_peaks]
-  intervals = [x.interval for x in r_peaks]
-
-  if len(r_samples) == 0:
-    return r_samples, amplitudes, intervals, 0, 0, 0, 0
-  amplitude_min_value, amplitude_max_value = get_confidence_interval(amplitudes, n = 4, stdev_add_term = 75)
-  amplitude_min_value, amplitude_max_value = max(amplitude_min_value, 150), min(amplitude_max_value, MAX_AMP + 100)
-  if amplitude_max_value < amplitude_min_value:
-    amplitude_max_value += amplitude_min_value
-  interval_min_value, interval_max_value = get_confidence_interval(intervals, n = 4, stdev_add_term = 100, filter_by_min = False)
-  interval_min_value, interval_max_value = max(interval_min_value, 300), min(interval_max_value, 2000)
-  if interval_min_value > interval_max_value:
-    interval_max_value += interval_min_value
-
-  united_interval = 0
-  united_intervals_count = 0
-  corrected_r_peaks = [r_peaks[0],]
-  for r_peak in r_peaks[1:]:
-    new_united_interval = r_peak.interval + united_interval
-    united_intervals_count += 1
-    if new_united_interval <= interval_max_value:
-      united_interval = new_united_interval
-    elif united_interval > 0 and r_peak.interval <= interval_max_value:
-      united_interval = r_peak.interval
-      united_intervals_count = 1
-    elif new_united_interval <= united_intervals_count * interval_max_value:
-      united_interval = new_united_interval / united_intervals_count
-      united_intervals_count = 1
-     
-    if amplitude_min_value <= r_peak.amplitude <= amplitude_max_value:
-      if interval_min_value <= united_interval <= interval_max_value:
-        corrected_r_peaks.append(r_peak)
-        united_interval = 0
-        united_intervals_count = 0
-  return corrected_r_peaks, amplitude_min_value, amplitude_max_value, interval_min_value, interval_max_value 
-"""
 
 def edit_qrs_qrs_amplitudes_intervals(r_peaks):
   amplitudes = [x.amplitude for x in r_peaks]
@@ -152,7 +113,7 @@ def edit_qrs_qrs_amplitudes_intervals(r_peaks):
     interval_max_value += interval_min_value
   #print interval_min_value, interval_max_value
 
-  corrected_r_peaks = [x for x in filtered_r_peaks if interval_min_value < x.interval < interval_max_value]
+  corrected_r_peaks = [x for x in filtered_r_peaks if interval_min_value < x.interval]
   intervals = np.r_[np.diff(np.array([x.r_sample for x in corrected_r_peaks])), corrected_r_peaks[-1].interval]
   for index in xrange(len(corrected_r_peaks)):
     corrected_r_peaks[index].interval = intervals[index]
@@ -211,14 +172,14 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
     qr_intervals = np.empty([0])
     qr_amplitudes = np.empty([0])
     q_size = Q_SIZE = 20
-    S_SIZE = 100
-    pq_size = 30
+    S_SIZE = 10
+    pq_size = 10
     q_window = []
     QRS_SIZE = 100
     MINUS_INF = -1e10    
     min_of_q_s_value = min_of_q_values = 0
-    qr_interval_min_value, qr_interval_max_value = 20, 120
-    qr_amplitude_min_value, qr_amplitude_max_value = 100, MAX_AMP
+    qr_interval_min_value, qr_interval_max_value = 20, 200
+    qr_amplitude_min_value, qr_amplitude_max_value = 150, MAX_AMP
     qr_interval_min_thres, qr_interval_max_thres = qr_interval_min_value, qr_interval_max_value
     qr_amplitude_min_thres, qr_amplitude_max_thres = qr_amplitude_min_value, qr_amplitude_max_value 
 
@@ -259,17 +220,17 @@ def get_qrs_amplitudes_intervals(data_filename, data_line_count, q_samples, sign
                                            nsigma = 4, 
                                            max_thres_max_value = qr_interval_max_value,
                                            min_thres_min_value = qr_interval_min_value,
-                                           stdev_add_term = 10)
+                                           stdev_add_term = 30)
 
               qr_amplitudes, qr_amplitude_min_thres, qr_amplitude_max_thres = \
                     get_qr_intervals_thres(qr_amplitudes, 
                                            r_value - min_of_q_values, 
                                            nsigma = 4, 
-                                           #filter_by_max = False,
+                                           filter_by_max = False,
                                            #filter_by_min = False,
                                            max_thres_max_value = qr_amplitude_max_value,
                                            min_thres_min_value = qr_amplitude_min_value, 
-                                           stdev_add_term = 50)
+                                           stdev_add_term = 80)
               
             last_r_sample = r_sample
           r_value, r_sample = MINUS_INF, sample

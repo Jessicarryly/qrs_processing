@@ -43,9 +43,11 @@ if __name__ == "__main__":
   if len(sys.argv) > 3:
     signals = map(int, sys.argv[3].strip().split("_"))
   
-  #invertSignalBySign(path, patient, record, signals)
   if len(sys.argv) > 4:
-    threshold = float(sys.argv[4])
+    if sys.argv[4] == "INV":
+      invertSignalBySign(path, patient, record, signals)
+  if len(sys.argv) > 5:
+    threshold = float(sys.argv[5])
     getQPeaksForInverted(path, patient, record, signals, threshold)
   
 

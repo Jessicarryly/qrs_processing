@@ -55,6 +55,9 @@ def correctQSample(qsample, corrected_qsamples_set):
   #print qsample, min(qsample_surround[:, 0]), max(qsample_surround[:, 0])
 
   qsample_surround = qsample_surround[qsample_surround[:, 0] <= qsample - 5, :]
+  if len(qsample_surround) == 0:
+    print qsample
+    
   if qsample > 5:
     corrected_qsample = qsample_surround[np.argmin(qsample_surround[:, 1]), 0]
   else:

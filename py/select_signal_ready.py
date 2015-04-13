@@ -26,8 +26,8 @@ class PatientRecordDescription(object):
   def __str__(self):
     pass
 
-  def select_signal(self):
-    signal_descriptions_initial = [self.load_signal(signal_index) for signal_index in self.signal_list]
+  def selectSignal(self, muv = True):
+    signal_descriptions_initial = [self.loadSignal(signal_index, muv) for signal_index in self.signal_list]
     signal_descriptions = sorted(signal_descriptions_initial, key = lambda x: x.total, reverse = True)
     if signal_descriptions[0].total > signal_descriptions[-1].total + 5:
       signal_descriptions = signal_descriptions[:-1]
@@ -37,9 +37,12 @@ class PatientRecordDescription(object):
     return signal_descriptions_initial, map(lambda x: x.signal_index, signal_descriptions) 
 
 
-  def load_signal(self, signal_index):
+  def loadSignal(self, signal_index, muv = True):
     signal_index = str(signal_index)
-    qrs_input_filename = "ptbdb/" + self.patient_record + "_qrs_corrected_" + str(signal_index)
+    path = "/Volumes/WD500GB/WFDB/ptbdb_muv/"
+    if muv == False:
+      path = "ptbdb/"
+    qrs_input_filename = path + self.patient_record + "_qrs_corrected_" + str(signal_index)
     qrs_input = open(qrs_input_filename)
 
     qrs_input.readline()
@@ -54,7 +57,7 @@ class PatientRecordDescription(object):
     return SignalDescription(signal_index, np.median(amplitudes), len(amplitudes), len(intervals[intervals > int_mean + 3 * int_std]))
 
 
-def get_patient_records(input_filename):
+def getPatientRecords(input_filename):
   patient_records = []
   patient_records_descriptions = {}
 
@@ -66,17 +69,16 @@ def get_patient_records(input_filename):
       patient_records.append(patient_record)
     patient_records_descriptions[patient_record].signal_list.append(line[2])
     
-
   return patient_records, patient_records_descriptions
 
 
-def select_signals(input_filename, print_to_log = False):
-  patient_records, patient_records_descriptions = get_patient_records(input_filename)
+def selectSignals(input_filename, print_to_log = False, muv = True):
+  patient_records, patient_records_descriptions = getPatientRecords(input_filename)
   if print_to_log:
     with open("log/selected_signals_descriptions", "w") as log, \
          open("log/selected_signals_descriptions_err", "w") as err_log:
       for patient_record in patient_records:
-        signal_descriptions_initial, signal_descriptions = patient_records_descriptions[patient_record].select_signal()
+        signal_descriptions_initial, signal_descriptions = patient_records_descriptions[patient_record].selectSignal(muv)
         
         if len(signal_descriptions) < len(signal_descriptions_initial):
           print >> err_log, patient_record, \
@@ -89,11 +91,11 @@ def select_signals(input_filename, print_to_log = False):
                       "\t".join(map(str, signal_descriptions_initial))
   else:
     for patient_record in patient_records:
-        patient_records_descriptions[patient_record].select_signal()
+        patient_records_descriptions[patient_record].selectSignal(muv)
   return patient_records, patient_records_descriptions
 
 
-def print_patient_records_descriptions(output_filename, patient_records, descriptions):
+def printPatientRecordsDescriptions(output_filename, patient_records, descriptions):
   with open(output_filename, "w") as output:
     for patient_record in patient_records:
       patient, record = patient_record.split("/")
@@ -101,12 +103,15 @@ def print_patient_records_descriptions(output_filename, patient_records, descrip
                descriptions[patient_record].selected_signal.signal_index, \
                descriptions[patient_record].diagnosis
 
+if __name__ == "__main__":
+  muv = True
+  if len(sys.argv) > 1:
+    muv = bool(sys.argv[1])
+  input_filename = "/Volumes/WD500GB/WFDB/ready"
+  patient_records, patient_record_descriptions = selectSignals(input_filename, muv)
 
-input_filename = "/Volumes/WD500GB/WFDB/ready"
-patient_records, patient_record_descriptions = select_signals(input_filename)
-
-output_filename = input_filename + "_selected"
-print_patient_records_descriptions(output_filename, patient_records, patient_record_descriptions)
+  output_filename = input_filename + "_selected"
+  printPatientRecordsDescriptions(output_filename, patient_records, patient_record_descriptions)
 
 
 
